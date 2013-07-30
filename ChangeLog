@@ -1,0 +1,15 @@
+2013-07-30 Shvedov Yury <shved@lvk.cs.msu.su>
+    
+    * src/gifrandom.h : Creation.
+    Header for interface. Contains main defenitions.
+
+    * src/gifrandom.c : Creation.
+    Realisation of main functions.
+
+    * src/gtk_interface.h : Creation
+    User gui via GTK+ 2.0.
+
+    * src/gtk_interface.c : Creation
+    Realisation of gtk gui.
+
+    * src/main.c : Creation
