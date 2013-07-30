@@ -91,41 +91,30 @@ gtkgif_init (void *data, PContext c)
 {
     GtkGifWidets *widgets;
     GtkWidget *window, *drawing_area;
-    gifptr_t gif;
+    int gif;
     GifSnapshoot *image_data;
     gtkgif_init_data *gg_id = (gtkgif_init_data *) data;
     int error, width, height;
     cairo_t *cr_pixmap;
     cairo_status_t status;
-    gchar *filename = NULL;
-    gboolean version = FALSE;
-    GOptionContext *option_context;
-    GError *g_error = NULL;
-    GOptionEntry option_entries[] = {
-        {"file", 'f', 0, G_OPTION_ARG_STRING, &filename, "Gif file to open", "FILE"},
-        {"version", 'V', 0, G_OPTION_ARG_NONE, &version, "Show version", NULL},
-        { NULL }
-    };
+    
     srand(time(NULL));
-
-    widgets = malloc (sizeof (*widgets));
-    c->interface_data = window;
 
     gtk_init (gg_id->argc, gg_id->argv);
 
-    option_context = g_option_context_new(" take random image from gif");
-    g_option_context_add_main_entries (option_context,
-            option_entries, "Application options");
-    g_option_context_add_group (option_context, gtk_get_option_group (TRUE));
-    if (!g_option_context_parse (option_context, 
-                gg_id->argc, gg_id->argv, &g_error))
-    {
-        put_error(1, "option parsing failed: %s\n", g_error->message);
-    }
-    if (filename == NULL) {
-        put_warning("please, indicate gif filename");
+    if (gg_id->runner != NULL) {
+        error = gg_id->runner(c, gg_id->argc, gg_id->argv,
+                gg_id->user_data);
+        if (error != 0 ||
+            get_gif_count(c) == 0) {
+            return;
+        }
+    } else {
         return;
     }
+
+    widgets = malloc (sizeof (*widgets));
+    set_context_interface_data (c, widgets);
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     widgets->window = window;
@@ -133,12 +122,10 @@ gtkgif_init (void *data, PContext c)
     drawing_area = gtk_drawing_area_new();
     gtk_container_add(GTK_CONTAINER(window), drawing_area);
 
-    gif = read_gif (c, filename, &error);
-    if (!gifptr_correct(gif)) {
-        put_error (1, "Gif pointer is incorrect");
-    }
-    image_data=get_snapshoot (c, gif,
-        (float)(rand()%1024)/1024);
+    printf ("AAAA %d\n", get_gif_count(c));
+    gif = rand () % get_gif_count (c);
+    image_data=get_snapshoot_pos (c, gif,
+        rand()% get_gif_image_count(c,gif));
     if (image_data == NULL) {
         put_warning ("Can not get image.");
         return;

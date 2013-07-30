@@ -26,6 +26,7 @@
 #include <gif_lib.h>
 #include <stdio.h>
 #include <glib.h>
+#include <stdlib.h>
 
 #define put_error(code, error, a...) \
     fprintf(stderr, "ERROR: " error "\nExiting with code %d.\n", ## a, code); \
@@ -55,26 +56,25 @@ typedef struct GifSnapshoot {
     unsigned char *pixmap;
 } GifSnapshoot;
 
-/**
- *  Pointer to loaded gif in terms of Context.
- */
-typedef int gifptr_t;
-#define gifptr_correct(p) \
-    ((p) >= 0)
+#define gifptr_correct(p,c) \
+    ((p) >= 0 && (p) < get_gif_count(c) )
 
 #define EXIT_FALIURE 1
 
-struct Context {
-    GPtrArray *gifs;
-    void *interface_data;
-};
 
 typedef void (*interface_init_f) (void *init_data, PContext c);
 
 PContext create_context (interface_init_f init, void *init_data);
 void free_context (PContext c);
-gifptr_t read_gif (PContext c, const char *file, int *error);
-GifSnapshoot* get_snapshoot (PContext c, gifptr_t gif, double gif_pos);
 void free_snapshoot (GifSnapshoot *sh);
+
+int read_gif (PContext c, const char *file, int *error);
+GifSnapshoot* get_snapshoot (const PContext c, int gif, float gif_pos);
+GifSnapshoot* get_snapshoot_pos (const PContext c, int gif, int gif_pos);
+
+size_t get_gif_count (const PContext c);
+int get_gif_image_count (const PContext c, int gif);
+void *get_context_interface_data (const PContext c);
+void set_context_interface_data (PContext c, void *data);
 
 #endif /*GIFRANDOM_H*/

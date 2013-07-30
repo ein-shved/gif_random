@@ -26,9 +26,13 @@
 #include <gtk/gtk.h>
 #include "gifrandom.h"
 
+typedef int (*ContextRunner) (PContext c, 
+        int *argc, char ***argv, void *user_data);
 typedef struct gtkgif_init_data {
     int *argc;
     char ***argv;
+    ContextRunner runner;
+    void *user_data;
 } gtkgif_init_data;
 
 void gtkgif_init (void *data, PContext c);

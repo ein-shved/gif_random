@@ -24,8 +24,12 @@
 
 #include <stdlib.h>
 
+struct Context {
+    GPtrArray *gifs;
+    void *interface_data;
+};
 void 
-DestroyGifFileTypeNotify (gpointer data)
+destroy_GifFileType_notify (gpointer data)
 {
     GifFileType *gifFile = (GifFileType *) data;
     int error = 0;
@@ -34,7 +38,6 @@ DestroyGifFileTypeNotify (gpointer data)
         put_warning ("Can not close file.");
         free (gifFile);
     }
-
 }
 
 PContext 
@@ -43,7 +46,8 @@ create_context (interface_init_f init, void *init_data)
     PContext context;
 
     context = malloc (sizeof (*context));
-    context->gifs = g_ptr_array_new_with_free_func (DestroyGifFileTypeNotify);
+    context->gifs = g_ptr_array_new_with_free_func (
+        destroy_GifFileType_notify);
 
     init (init_data, context);
     
@@ -56,11 +60,11 @@ free_context (PContext c)
     g_ptr_array_free (c->gifs, TRUE);
 }
 
-gifptr_t
+int
 read_gif (PContext c, const char *filename, int *error)
 {
     GifFileType *gif;
-    gifptr_t result;
+    int result;
     gif = DGifOpenFileName (filename);
     if (gif != NULL) {
         g_ptr_array_add (c->gifs, gif);
@@ -124,16 +128,13 @@ colormap_to_GRB24(GifSnapshoot *snap,
 }
 
 GifSnapshoot * 
-get_snapshoot (PContext c, 
-        gifptr_t gif, 
-        double gif_pos)
+get_snapshoot (const PContext c, 
+        int gif, 
+        float gif_pos)
 {
     GifFileType *gifFile;
-    SavedImage *image;
-    GifSnapshoot *snap;
-    ColorMapObject *colormap;
 
-    if (c->gifs->len <= gif && !gifptr_correct(gif)
+    if (!gifptr_correct(gif,c)
         && gif_pos < 0 && gif_pos >= 1 ) {
         put_warning ("Wrong gif pointer "
                 "%d:%1.4f",gif,gif_pos );
@@ -141,8 +142,27 @@ get_snapshoot (PContext c,
     }
     gifFile = ((GifFileType *) c->gifs->pdata[gif]);
 
-    image = gifFile->SavedImages
-        +(int)(gifFile->ImageCount * gif_pos);
+    return get_snapshoot_pos (c, gif, (int) (gifFile->ImageCount * gif_pos) );
+}
+GifSnapshoot * 
+get_snapshoot_pos (const PContext c, 
+        int gif, 
+        int gif_pos)
+{
+    GifFileType *gifFile;
+    SavedImage *image;
+    GifSnapshoot *snap;
+    ColorMapObject *colormap;
+
+    if (!gifptr_correct(gif, c)
+        && gif_pos < 0 && gif_pos >= 1 ) {
+        put_warning ("Wrong gif pointer "
+                "%d:%1.4f",gif,gif_pos );
+        return NULL;
+    }
+    gifFile = ((GifFileType *) c->gifs->pdata[gif]);
+
+    image = gifFile->SavedImages + gif_pos;
 
     snap = calloc (1,sizeof(GifSnapshoot));
     if (snap == NULL) {
@@ -169,6 +189,32 @@ get_snapshoot (PContext c,
         return NULL;
     }
     return snap;
+}
+
+size_t
+get_gif_count (const PContext c) 
+{
+    return (size_t) c->gifs->len;
+}
+
+int
+get_gif_image_count (const PContext c, int gif) 
+{
+    if (!gifptr_correct(gif,c)) {
+        return -1;
+    }
+}
+
+void *
+get_context_interface_data (const  PContext c) 
+{
+    return c->interface_data;
+}
+
+void
+set_context_interface_data (PContext c, void *data)
+{
+    c->interface_data = data;
 }
 
 void
