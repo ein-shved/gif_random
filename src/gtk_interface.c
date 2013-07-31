@@ -97,6 +97,7 @@ gtkgif_init (void *data, PContext c)
     int error, width, height;
     cairo_t *cr_pixmap;
     cairo_status_t status;
+    GdkGeometry gdkGeometry;
     
     srand(time(NULL));
 
@@ -122,7 +123,6 @@ gtkgif_init (void *data, PContext c)
     drawing_area = gtk_drawing_area_new();
     gtk_container_add(GTK_CONTAINER(window), drawing_area);
 
-    printf ("AAAA %d\n", get_gif_count(c));
     gif = rand () % get_gif_count (c);
     image_data=get_snapshoot_pos (c, gif,
         rand()% get_gif_image_count(c,gif));
@@ -134,7 +134,13 @@ gtkgif_init (void *data, PContext c)
     width = image_data->width;
     height = image_data->height;
 
+    gdkGeometry.min_width = width;
+    gdkGeometry.min_height = height;
+
     gtk_window_set_default_size (GTK_WINDOW(window), width, height);
+    gtk_window_set_geometry_hints (GTK_WINDOW(window), window,
+            &gdkGeometry,GDK_HINT_MIN_SIZE);
+    gtk_window_set_resizable (GTK_WINDOW(window), FALSE);
     gtk_widget_set_app_paintable(window, TRUE);
     gtk_window_set_title(GTK_WINDOW(window), "Random Gif");
 

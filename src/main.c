@@ -30,39 +30,51 @@ int interface_runner (PContext c,
         int *argc, char ***argv, void *user_data)
 {
     gboolean version = FALSE;
-    gchar *filename = NULL;
     GOptionContext *option_context;
     GError *g_error = NULL;
     GOptionEntry option_entries[] = {
-        {"file", 'f', 0, G_OPTION_ARG_STRING, &filename, "Gif file to open", "FILE"},
+        //{"file", 'f', 0, G_OPTION_ARG_FILENAME, &filename, "Gif file to open", "FILE"},
         {"version", 'V', 0, G_OPTION_ARG_NONE, &version, "Show version", NULL},
         { NULL }
     };
-    int gif, error;
+    int gif, error = 0, i;
 
-    option_context = g_option_context_new(" take random image from gif");
+    option_context = g_option_context_new("[FILE...] - " 
+            "take random image from gif files.");
     g_option_context_add_main_entries (option_context,
             option_entries, "Application options");
     g_option_context_add_group (option_context, gtk_get_option_group (TRUE));
+
     if (!g_option_context_parse (option_context, 
                 argc, argv, &g_error))
     {
-        put_error(1, "option parsing failed: %s\n", g_error->message);
+        put_error(1, "option parsing failed: %s\n\n%s", 
+                g_error->message,
+                g_option_context_get_help(option_context, TRUE, NULL)); 
     }
+    
     if (version) {
         printf ("Gif Random %s\n", VERSION);
     }
-    if (filename == NULL) {
-        if (!version) {
-            put_warning("please, indicate gif filename");
+
+    for (i=1; i < *argc; ++i) {
+        gif = read_gif (c, (*argv)[i], &error);
+        if (!gifptr_correct(gif,c)) {
+            put_error (error, "Invalid filename '%s'. %s", 
+                    (*argv)[i], GifErrorString());
         }
-        return;
     }
 
-    gif = read_gif (c, filename, &error);
-    if (!gifptr_correct(gif,c)) {
-        put_error (1, "Gif pointer is incorrect");
+    if ( *argc <= 1 && !version) {
+        printf ("No file specified, reading from stdin.\n");
+        gif = read_gif_handle (c, STDIN_FILENO, &error);
+        if (!gifptr_correct(gif,c)) {
+            put_error (error, "Can not read from stdin. %s", 
+                    GifErrorString());
+        }
     }
+    g_option_context_free (option_context);
+    return 0;
 }
 
 int

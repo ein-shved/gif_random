@@ -81,6 +81,27 @@ read_gif (PContext c, const char *filename, int *error)
     return result;
 }
 
+int
+read_gif_handle (PContext c, int handle, int *error)
+{
+    GifFileType *gif;
+    int result;
+    gif = DGifOpenFileHandle (handle);
+    if (gif != NULL) {
+        g_ptr_array_add (c->gifs, gif);
+        if ( DGifSlurp (gif) == GIF_ERROR) {
+            *error = GifError();
+            result = -1;
+        } else {
+            result = c->gifs->len - 1;
+        }
+    } else {
+        *error = GifError();
+        result = -1;
+    }
+    return result;
+}
+
 #define BITSPERPIXEL 4
 
 int

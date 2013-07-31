@@ -69,6 +69,7 @@ void free_context (PContext c);
 void free_snapshoot (GifSnapshoot *sh);
 
 int read_gif (PContext c, const char *file, int *error);
+int read_gif_handle (PContext c, int handle, int *error);
 GifSnapshoot* get_snapshoot (const PContext c, int gif, float gif_pos);
 GifSnapshoot* get_snapshoot_pos (const PContext c, int gif, int gif_pos);
 

@@ -13,3 +13,18 @@
     Realisation of gtk gui.
 
     * src/main.c : Creation
+
+2013-07-31 Shvedov Yury <shved@lvk.cs.msu.su>
+
+    * src/gifrandom.h src/gifrandom.c : Adding functionality
+    Incapsulating th Context structure
+
+    * stc/gtk_interface.h src/gtk_interface.c : 
+    Making outside handler
+    Additional fitchures like unresizable window
+
+    * src/main.c : 
+    Argument parcing
+
+    * configure.ac :
+    New version 0.1.1
