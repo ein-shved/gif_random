@@ -221,9 +221,13 @@ get_gif_count (const PContext c)
 int
 get_gif_image_count (const PContext c, int gif) 
 {
+    GifFileType *gifFile;
+
     if (!gifptr_correct(gif,c)) {
         return -1;
     }
+    gifFile = ((GifFileType *) c->gifs->pdata[gif]);
+    return gifFile->ImageCount;
 }
 
 void *

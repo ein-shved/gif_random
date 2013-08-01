@@ -60,7 +60,7 @@ int interface_runner (PContext c,
     for (i=1; i < *argc; ++i) {
         gif = read_gif (c, (*argv)[i], &error);
         if (!gifptr_correct(gif,c)) {
-            put_error (error, "Invalid filename '%s'. %s", 
+            put_warning ("Invalid filename '%s'. %s", 
                     (*argv)[i], GifErrorString());
         }
     }
@@ -74,6 +74,10 @@ int interface_runner (PContext c,
         }
     }
     g_option_context_free (option_context);
+
+    if ( get_gif_count (c) <= 0) {
+        return 1;
+    }
     return 0;
 }
 

@@ -34,7 +34,7 @@ typedef struct GtkGifWidets {
     GifSnapshoot *image_data;
     PContext gif_context;
 
-    int gif;
+    int gif_no, image_no;
 } GtkGifWidets;
 
 #define MAX_WIDTH 2048
@@ -52,6 +52,15 @@ static void
 on_destroy( GtkWidget *widget,
     gpointer   data )
 {
+    GtkGifWidets *widgets = (GtkGifWidets *) data;
+
+    if (widgets->image != NULL) {
+        cairo_surface_destroy (widgets->image);
+    }
+    if (widgets->image_data != NULL) {
+        free_snapshoot (widgets->image_data);
+    }
+
     gtk_main_quit ();
 }
 
@@ -98,7 +107,7 @@ display_random_image (GtkGifWidets *widgets)
     GtkWidget *window = widgets->window; 
     PContext c = widgets->gif_context;
     int error, width, height;
-    int gif;
+    int gif, gif_count, img, img_count;
     GifSnapshoot *image_data;
     GdkGeometry gdkGeometry;
     cairo_status_t status;
@@ -110,9 +119,17 @@ display_random_image (GtkGifWidets *widgets)
         free_snapshoot (widgets->image_data);
     }
 
-    gif = rand () % get_gif_count (c);
-    widgets->image_data = image_data = get_snapshoot_pos 
-        (c, gif, rand()% get_gif_image_count(c,gif));
+    gif_count = get_gif_count (c);
+    if (gif_count <= 0) {
+        return;
+    }
+    gif = rand () % gif_count;
+    img_count = get_gif_image_count(c,gif);
+    if (img_count <= 0) {
+        return;
+    }
+    img = rand () % img_count;
+    widgets->image_data = image_data = get_snapshoot_pos (c, gif, img);
     if (image_data == NULL) {
         put_warning ("Can not get image.");
         return;

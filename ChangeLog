@@ -28,3 +28,14 @@
 
     * configure.ac :
     New version 0.1.1
+
+2013-08-01 Shvedov Yury <shved@lvk.cs.msu.su>
+
+    * src/gtk_interface.c : Correct mouse button issue.
+    Move display_random_image as separate fuction.
+
+    * src/gifrandom.c :
+    Correct get_image_cout bug.
+
+    * configure.ac :
+    New vesion 0.1.2
