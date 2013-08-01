@@ -34,7 +34,7 @@ typedef struct GtkGifWidets {
     GifSnapshoot *image_data;
     PContext gif_context;
 
-    int gif, image;
+    int gif;
 } GtkGifWidets;
 
 #define MAX_WIDTH 2048
