@@ -33,6 +33,8 @@ typedef struct GtkGifWidets {
     GdkPixmap *pixmap;
     GifSnapshoot *image_data;
     PContext gif_context;
+
+    int gif, image;
 } GtkGifWidets;
 
 #define MAX_WIDTH 2048
@@ -90,12 +92,9 @@ display_image (gpointer data)
     gtk_widget_queue_draw(window);
 }
 
-static gboolean 
-on_button_release_event (GtkWidget *widget,
-        GdkEvent *event,
-        gpointer data)
+static void
+display_random_image (GtkGifWidets *widgets)
 {
-    GtkGifWidets *widgets = (GtkGifWidets *) data;
     GtkWidget *window = widgets->window; 
     PContext c = widgets->gif_context;
     int error, width, height;
@@ -140,6 +139,28 @@ on_button_release_event (GtkWidget *widget,
     }
 
     display_image (widgets);
+}
+
+static gboolean 
+on_button_press_event (GtkWidget *widget,
+        GdkEvent *event,
+        gpointer data)
+{
+    GtkGifWidets *widgets = (GtkGifWidets *) data;
+
+    display_random_image (widgets);
+
+    return FALSE;
+}
+
+static gboolean
+on_key_press_event (GtkWidget *widget,
+        GdkEvent *event,
+        gpointer data)
+{
+    GtkGifWidets *widgets = (GtkGifWidets *) data;
+
+    display_random_image (widgets);
 
     return FALSE;
 }
@@ -188,18 +209,23 @@ gtkgif_init (void *data, PContext c)
             G_CALLBACK (on_destroy), widgets);
     g_signal_connect (drawing_area, "expose-event",
             G_CALLBACK (on_expose_event), widgets);
-    g_signal_connect (window, "key-release-event",
-            G_CALLBACK (on_button_release_event), widgets);
-    g_signal_connect (window, "button-release-event",
-            G_CALLBACK (on_button_release_event), widgets);
-
+    g_signal_connect (drawing_area, "key-press-event",
+            G_CALLBACK (on_key_press_event), widgets);
+    g_signal_connect (drawing_area, "button-press-event",
+            G_CALLBACK (on_button_press_event), widgets);
+   
+    gtk_widget_set_events (drawing_area, GDK_EXPOSURE_MASK
+			 | GDK_LEAVE_NOTIFY_MASK
+			 | GDK_BUTTON_PRESS_MASK
+			 | GDK_POINTER_MOTION_MASK
+			 | GDK_POINTER_MOTION_HINT_MASK); 
     gtk_widget_show_all(window);
 
     widgets->pixmap = gdk_pixmap_new(window->window, MAX_WIDTH, MAX_HEIGHT, -1);
     widgets->drawing_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
             MAX_WIDTH, MAX_HEIGHT);
 
-    on_button_release_event (window, NULL, widgets);
+    display_random_image (widgets);
 
     gtk_main();
 }
