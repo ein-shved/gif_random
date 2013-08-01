@@ -25,6 +25,7 @@
 #include <cairo.h>
 #include <stdio.h>
 #include <time.h>
+#include <gdk/gdkkeysyms.h>
 
 typedef struct GtkGifWidets {
     GtkWidget *window;
@@ -64,6 +65,19 @@ on_destroy( GtkWidget *widget,
     gtk_main_quit ();
 }
 
+static void 
+update_drawing_data (GtkGifWidets *widgets)
+{
+    if (widgets->image != NULL) {
+        cairo_surface_destroy (widgets->image);
+        widgets->image = NULL;
+    }
+    if (widgets-> image_data != NULL) {
+        free_snapshoot (widgets->image_data);
+        widgets->image_data = NULL;
+    }
+}
+
 static gboolean 
 on_expose_event(GtkWidget *widget,
         GdkEventExpose *event,
@@ -88,6 +102,45 @@ display_image (gpointer data)
     cairo_surface_t *image;
     cairo_t *cr, *cr_pixmap;
 
+    int width, height;
+    GifSnapshoot *image_data = widgets->image_data;
+    GdkGeometry gdkGeometry;
+    cairo_status_t status;
+
+    width = image_data->width;
+    height = image_data->height;
+
+    //Set size to image geometry.
+
+    gdkGeometry.min_width = width;
+    gdkGeometry.min_height = height;
+
+    gtk_window_set_default_size (GTK_WINDOW(window), width, height);
+    gtk_window_set_geometry_hints (GTK_WINDOW(window), window,
+            &gdkGeometry,GDK_HINT_MIN_SIZE);
+
+    //Prepare image to uploading
+
+    if (widgets->image != NULL) {
+        cairo_surface_destroy (widgets->image);
+        widgets->image = NULL;
+    }
+
+    //Uploading image from widgets' data to cairo_surface
+    
+    widgets->image = cairo_image_surface_create_for_data (
+           image_data->pixmap, CAIRO_FORMAT_RGB24, width, height, 
+           cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, width));
+
+    status = cairo_surface_status(widgets->image);
+
+    if ( status != CAIRO_STATUS_SUCCESS) {
+        put_error ( status, "Can not load image, because \'%s\'", 
+            cairo_status_to_string(status) );
+    }
+
+    //Drawing image
+
     image = widgets->image;
     cr = cairo_create (widgets->drawing_surface);
     cairo_set_source_surface (cr, image, 0, 0);
@@ -102,60 +155,115 @@ display_image (gpointer data)
 }
 
 static void
-display_random_image (GtkGifWidets *widgets)
+update_image (GtkGifWidets *widgets, gboolean display)
 {
-    GtkWidget *window = widgets->window; 
     PContext c = widgets->gif_context;
-    int error, width, height;
-    int gif, gif_count, img, img_count;
-    GifSnapshoot *image_data;
-    GdkGeometry gdkGeometry;
-    cairo_status_t status;
 
-    if (widgets->image != NULL) {
-        cairo_surface_destroy (widgets->image);
+    update_drawing_data (widgets);
+
+    widgets->image_data = get_snapshoot_pos (c, widgets->gif_no,
+            widgets->image_no);
+    if (widgets->image_data == NULL) {
+        put_warning ("Can not get image.");
+        return;
     }
-    if (widgets-> image_data != NULL) {
-        free_snapshoot (widgets->image_data);
+   
+    if (display) {
+        display_image (widgets);
     }
+
+}
+
+static void
+get_random_image (GtkGifWidets *widgets, gboolean display)
+{
+    PContext c = widgets->gif_context;
+    int gif, gif_count, img, img_count;
 
     gif_count = get_gif_count (c);
-    if (gif_count <= 0) {
+    if (gif_count <= 0) { 
+        put_warning ("Can not get count of gifs");
         return;
     }
     gif = rand () % gif_count;
     img_count = get_gif_image_count(c,gif);
     if (img_count <= 0) {
+        put_warning ("Can not get count of images in gif");
         return;
     }
     img = rand () % img_count;
-    widgets->image_data = image_data = get_snapshoot_pos (c, gif, img);
-    if (image_data == NULL) {
-        put_warning ("Can not get image.");
+
+    widgets->gif_no = gif;
+    widgets->image_no = img;
+
+    update_image (widgets, display);
+}
+
+static void
+get_next_image (GtkGifWidets *widgets, gboolean display)
+{
+    PContext c = widgets->gif_context;
+    int gif, img, gif_count, img_count;
+
+    gif = widgets->gif_no;
+    img = widgets->image_no + 1;
+
+    img_count = get_gif_image_count(c,gif);
+    if (img_count <= 0) {
+        put_warning ("Can not get count of images in gif");
         return;
     }
-
-    width = image_data->width;
-    height = image_data->height;
-
-    gdkGeometry.min_width = width;
-    gdkGeometry.min_height = height;
-
-    gtk_window_set_default_size (GTK_WINDOW(window), width, height);
-    gtk_window_set_geometry_hints (GTK_WINDOW(window), window,
-            &gdkGeometry,GDK_HINT_MIN_SIZE);
-
-    widgets->image = cairo_image_surface_create_for_data (
-           image_data->pixmap, CAIRO_FORMAT_RGB24, width, height, 
-           cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, width));
-
-    status = cairo_surface_status(widgets->image);
-    if ( status != CAIRO_STATUS_SUCCESS) {
-        put_error ( status, "Can not load image, because \'%s\'", 
-            cairo_status_to_string(status) );
+    if ( img >= img_count ) { 
+        ++gif;
+        img = 0;
+        gif_count = get_gif_count (c);
+        if (gif_count <= 0) {
+            put_warning ("Can not get count of gifs");
+            return;
+        }
+        if ( gif >= gif_count ) {
+            gif = 0;
+        }
     }
+    widgets->image_no = img;
+    widgets->gif_no = gif;
+    update_image (widgets, display);
 
-    display_image (widgets);
+    return;
+}
+
+static void
+get_previous_image (GtkGifWidets *widgets, gboolean display)
+{
+    PContext c = widgets->gif_context;
+    int gif, img, gif_count, img_count;
+
+    gif = widgets->gif_no;
+    img = widgets->image_no - 1;
+
+    if ( img < 0 ) { 
+        --gif;
+        if ( gif < 0 ) {
+            gif_count = get_gif_count (c);
+            if (gif_count <= 0) {
+                put_warning ("Can not get count of gifs");
+                return;
+            }
+            gif = gif_count - 1;
+        }
+
+        img_count = get_gif_image_count(c,gif);
+        if (img_count <= 0) {
+            put_warning ("Can not get count of images in gif");
+            return;
+        }
+        img = img_count - 1;
+    }
+    widgets->image_no = img;
+    widgets->gif_no = gif;
+    update_image (widgets, display);
+
+    return;
 }
 
 static gboolean 
@@ -165,19 +273,31 @@ on_button_press_event (GtkWidget *widget,
 {
     GtkGifWidets *widgets = (GtkGifWidets *) data;
 
-    display_random_image (widgets);
+    get_random_image (widgets, TRUE);
 
     return FALSE;
 }
 
 static gboolean
 on_key_press_event (GtkWidget *widget,
-        GdkEvent *event,
+        GdkEventKey *event,
         gpointer data)
 {
     GtkGifWidets *widgets = (GtkGifWidets *) data;
 
-    display_random_image (widgets);
+    switch (event->keyval) {
+    case GDK_Up :
+    case GDK_KEY_Right :
+        get_next_image (widgets, TRUE);
+        break;
+    case GDK_KEY_Down :
+    case GDK_KEY_Left :
+        get_previous_image (widgets, TRUE);
+        break;
+    case GDK_KEY_Return :
+        get_random_image (widgets, TRUE);
+        break;
+    }
 
     return FALSE;
 }
@@ -226,23 +346,24 @@ gtkgif_init (void *data, PContext c)
             G_CALLBACK (on_destroy), widgets);
     g_signal_connect (drawing_area, "expose-event",
             G_CALLBACK (on_expose_event), widgets);
-    g_signal_connect (drawing_area, "key-press-event",
+    g_signal_connect (window, "key-press-event",
             G_CALLBACK (on_key_press_event), widgets);
     g_signal_connect (drawing_area, "button-press-event",
             G_CALLBACK (on_button_press_event), widgets);
    
     gtk_widget_set_events (drawing_area, GDK_EXPOSURE_MASK
-			 | GDK_LEAVE_NOTIFY_MASK
 			 | GDK_BUTTON_PRESS_MASK
 			 | GDK_POINTER_MOTION_MASK
-			 | GDK_POINTER_MOTION_HINT_MASK); 
+			 | GDK_POINTER_MOTION_HINT_MASK
+             | GDK_KEY_PRESS_MASK); 
     gtk_widget_show_all(window);
 
     widgets->pixmap = gdk_pixmap_new(window->window, MAX_WIDTH, MAX_HEIGHT, -1);
     widgets->drawing_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
             MAX_WIDTH, MAX_HEIGHT);
 
-    display_random_image (widgets);
+    update_image (widgets, TRUE);
+    //get_random_image (widgets, TRUE);
 
     gtk_main();
 }

@@ -60,6 +60,17 @@ free_context (PContext c)
     g_ptr_array_free (c->gifs, TRUE);
 }
 
+static int 
+gif_slurp_check (GifFileType *gifFile) {
+    if ( gifFile->ImageCount <= 0 ) {
+        if ( DGifSlurp (gifFile) == GIF_ERROR) {
+            put_warning ("%s", GifErrorString());
+            return -1;
+        };
+    }
+    return 0;
+}
+
 int
 read_gif (PContext c, const char *filename, int *error)
 {
@@ -68,12 +79,8 @@ read_gif (PContext c, const char *filename, int *error)
     gif = DGifOpenFileName (filename);
     if (gif != NULL) {
         g_ptr_array_add (c->gifs, gif);
-        if ( DGifSlurp (gif) == GIF_ERROR) {
-            *error = GifError();
-            result = -1;
-        } else {
-            result = c->gifs->len - 1;
-        }
+
+        result = c->gifs->len - 1;
     } else {
         *error = GifError();
         result = -1;
@@ -85,16 +92,10 @@ int
 read_gif_handle (PContext c, int handle, int *error)
 {
     GifFileType *gif;
-    int result;
+    int result = 0;
     gif = DGifOpenFileHandle (handle);
     if (gif != NULL) {
         g_ptr_array_add (c->gifs, gif);
-        if ( DGifSlurp (gif) == GIF_ERROR) {
-            *error = GifError();
-            result = -1;
-        } else {
-            result = c->gifs->len - 1;
-        }
     } else {
         *error = GifError();
         result = -1;
@@ -163,6 +164,10 @@ get_snapshoot (const PContext c,
     }
     gifFile = ((GifFileType *) c->gifs->pdata[gif]);
 
+    if (gif_slurp_check(gifFile) < 0) {
+        return NULL;
+    }
+
     return get_snapshoot_pos (c, gif, (int) (gifFile->ImageCount * gif_pos) );
 }
 GifSnapshoot * 
@@ -182,6 +187,10 @@ get_snapshoot_pos (const PContext c,
         return NULL;
     }
     gifFile = ((GifFileType *) c->gifs->pdata[gif]);
+
+    if (gif_slurp_check(gifFile) < 0) {
+        return NULL;
+    }
 
     image = gifFile->SavedImages + gif_pos;
 
@@ -226,7 +235,13 @@ get_gif_image_count (const PContext c, int gif)
     if (!gifptr_correct(gif,c)) {
         return -1;
     }
+
     gifFile = ((GifFileType *) c->gifs->pdata[gif]);
+    
+    if (gif_slurp_check(gifFile) < 0) {
+        return NULL;
+    }
+
     return gifFile->ImageCount;
 }
 

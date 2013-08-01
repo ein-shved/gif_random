@@ -26,6 +26,17 @@
 
 #include <gtk/gtk.h>
 
+static const char *
+description =
+"If no files specified in arguments, one file will be read\n"
+"from stdin. You can shift in files freely.\n"
+"Use arrows Up or Right to switch on next picture in gif.\n"
+"Use arrows Down or Left to switch on previous picture in gif.\n"
+"Use Return or Mouse button to choose picture randomly.\n"
+"\n"
+"Bug report: Yury Shvedov <shved@lvk.cs.msu.su>\n"
+"Thank you for paing an interest.\n";
+
 int interface_runner (PContext c,
         int *argc, char ***argv, void *user_data)
 {
@@ -41,6 +52,7 @@ int interface_runner (PContext c,
 
     option_context = g_option_context_new("[FILE...] - " 
             "take random image from gif files.");
+    g_option_context_set_description (option_context, description);
     g_option_context_add_main_entries (option_context,
             option_entries, "Application options");
     g_option_context_add_group (option_context, gtk_get_option_group (TRUE));

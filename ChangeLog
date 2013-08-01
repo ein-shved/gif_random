@@ -33,9 +33,15 @@
 
     * src/gtk_interface.c : Correct mouse button issue.
     Move display_random_image as separate fuction.
+    Non-random shifting was added.
+    Displaying was devided into functions.
+    Keyboard manipulation was added.
 
     * src/gifrandom.c :
     Correct get_image_cout bug.
 
+
     * configure.ac :
-    New vesion 0.1.2
+    New version 0.1.2
+    New version 0.1.3
+
