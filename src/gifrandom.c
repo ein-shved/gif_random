@@ -23,11 +23,17 @@
 #include "gifrandom.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 struct Context {
     GPtrArray *gifs;
     void *interface_data;
 };
+
+typedef struct GifExtra {
+    char *filename;
+} GifExtra;
+
 void 
 destroy_GifFileType_notify (gpointer data)
 {
@@ -76,15 +82,35 @@ read_gif (PContext c, const char *filename, int *error)
 {
     GifFileType *gif;
     int result;
+    int filename_size;
+    GifExtra *gif_extra;
+
     gif = DGifOpenFileName (filename);
     if (gif != NULL) {
         g_ptr_array_add (c->gifs, gif);
-
         result = c->gifs->len - 1;
     } else {
         *error = GifError();
         result = -1;
+        return result;
     }
+
+    gif->UserData = NULL;
+    gif_extra = calloc (1,sizeof(GifExtra));
+    if (gif_extra == NULL) {
+        put_warning ("Can not allocate memory for filename");
+        return result;
+    }
+    filename_size = strlen (filename);
+    gif_extra->filename = calloc (filename_size+1,sizeof(char));
+    if (gif_extra->filename == NULL) {
+        free(gif_extra);
+        put_warning ("Can not allocate memory for filename");
+        return result;
+    }
+    strcpy (gif_extra->filename, filename);
+    gif->UserData = gif_extra;
+
     return result;
 }
 
@@ -239,7 +265,7 @@ get_gif_image_count (const PContext c, int gif)
     gifFile = ((GifFileType *) c->gifs->pdata[gif]);
     
     if (gif_slurp_check(gifFile) < 0) {
-        return NULL;
+        return -1;
     }
 
     return gifFile->ImageCount;
@@ -262,4 +288,23 @@ free_snapshoot (GifSnapshoot *sh)
 {
     free (sh->pixmap);
     free (sh);
+}
+
+const char *
+get_gif_filename (const PContext c, int gif)
+{
+    const GifFileType *gifFile;
+    const GifExtra *extra_data;
+
+    if (!gifptr_correct(gif,c)) {
+        return NULL;
+    }
+
+    gifFile = ((GifFileType *) c->gifs->pdata[gif]);
+
+    extra_data = (GifExtra *)gifFile->UserData;
+    if (extra_data == NULL) {
+        return NULL;
+    }
+    return extra_data->filename;
 }

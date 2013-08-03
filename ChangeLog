@@ -31,8 +31,8 @@
 
 2013-08-01 Shvedov Yury <shved@lvk.cs.msu.su>
 
-    * src/gtk_interface.c : Correct mouse button issue.
-    Move display_random_image as separate fuction.
+    * src/gtk_interface.c : Corrected mouse button issue.
+    Moveed display_random_image as separate fuction.
     Non-random shifting was added.
     Displaying was devided into functions.
     Keyboard manipulation was added.
@@ -40,8 +40,24 @@
     * src/gifrandom.c :
     Correct get_image_cout bug.
 
-
     * configure.ac :
     New version 0.1.2
     New version 0.1.3
 
+2013-08-03 Shvedov Yury <shved@lvk.cs.msu.su>
+
+    * src/gtk_interface.c : Added Esc and PgUp/PgDn keys
+    Moved all gtk related data to separated structer
+    Moved all window content to main_box
+    Added control box with filename and image_no
+
+    * src/gifrandom.c : 
+    Created GifExtra structer as GifFileType::USerData
+    Added get_gif_filename function
+
+    * src/main.c :
+    Updated description
+
+    * configure.ac :
+    New version 0.1.4
+    Other configs updated

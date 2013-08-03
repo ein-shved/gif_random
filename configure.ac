@@ -1,4 +1,4 @@
-AC_INIT([gif_random], [0.1.2], [shved@lvk.cs.msu.su])
+AC_INIT([Gif Random], [0.1.4], [Shvedov Yury <shved@lvk.cs.msu.su>])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 AC_PROG_CC
 AC_CONFIG_HEADERS([config.h])

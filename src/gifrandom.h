@@ -78,4 +78,6 @@ int get_gif_image_count (const PContext c, int gif);
 void *get_context_interface_data (const PContext c);
 void set_context_interface_data (PContext c, void *data);
 
+const char *get_gif_filename (const PContext c, int gif);
+
 #endif /*GIFRANDOM_H*/

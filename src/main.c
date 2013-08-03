@@ -33,9 +33,12 @@ description =
 "Use arrows Up or Right to switch on next picture in gif.\n"
 "Use arrows Down or Left to switch on previous picture in gif.\n"
 "Use Return or Mouse button to choose picture randomly.\n"
+"Use PageUp to switch on first image of next gif.\n"
+"Use PageDown to switch on first image of preveous gif.\n"
+"Use Esc to quit.\n"
 "\n"
-"Bug report: Yury Shvedov <shved@lvk.cs.msu.su>\n"
-"Thank you for paing an interest.\n";
+"Bug report: " PACKAGE_BUGREPORT "\n"
+"Thank you for your interest.\n";
 
 int interface_runner (PContext c,
         int *argc, char ***argv, void *user_data)
@@ -66,7 +69,7 @@ int interface_runner (PContext c,
     }
     
     if (version) {
-        printf ("Gif Random %s\n", VERSION);
+        printf ("%s\n",PACKAGE_STRING);
     }
 
     for (i=1; i < *argc; ++i) {
