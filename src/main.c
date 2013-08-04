@@ -35,6 +35,7 @@ description =
 "Use Return or Mouse button to choose picture randomly.\n"
 "Use PageUp to switch on first image of next gif.\n"
 "Use PageDown to switch on first image of preveous gif.\n"
+"Use key R to switch slidshow mode on/off.\n"
 "Use Esc to quit.\n"
 "\n"
 "Bug report: " PACKAGE_BUGREPORT "\n"

@@ -41,6 +41,11 @@ typedef struct GtkGifWidgets {
 
 } GtkGifWidgets;
 
+typedef enum GtkGifRunningMode {
+    GIF_GTK_COMMON_MODE,
+    GIF_GTK_SLIDESHOW_MODE
+} GifGtkRunningMode;
+
 typedef struct GtkGifInterace {
     GtkGifWidgets gtk;
     
@@ -51,6 +56,7 @@ typedef struct GtkGifInterace {
     PContext gif_context;
 
     int gif_no, image_no;
+    GifGtkRunningMode mode;
 } GtkGifInterace;
 
 
@@ -186,9 +192,10 @@ display_image (gpointer data)
 static void
 update_image (GtkGifInterace *interface, gboolean display)
 {
+#define IMAGE_INFO_LINE_LEN 6+10+4+10 //more then in MAX_INT + 1
     PContext c = interface->gif_context;
     const char *filename = NULL;
-    char image_no[10]; //more then in MAX_INT + 1
+    char image_no[IMAGE_INFO_LINE_LEN]; 
     int number_len;
 
     update_drawing_data (interface);
@@ -207,8 +214,9 @@ update_image (GtkGifInterace *interface, gboolean display)
     gtk_label_set_text (GTK_LABEL(interface->gtk.gif_id), 
             filename);
 
-    number_len = sprintf(image_no, "%d", interface->image_no);
-    if (number_len >= 10) {
+    number_len = sprintf(image_no, "image %d/%d", 
+        interface->image_no+1, get_gif_image_count(c,interface->gif_no) );
+    if (number_len >= IMAGE_INFO_LINE_LEN) {
         put_error (1,"Pehaps, overflow");
     }
 
@@ -359,6 +367,34 @@ get_preavious_gif (GtkGifInterace *interface, gboolean display)
     return;
 }
 
+static gboolean
+on_timer_handler (GtkGifInterace *interface);
+
+static void
+update_timer (GtkGifInterace *interface)
+{
+    if (interface->mode == GIF_GTK_SLIDESHOW_MODE) {
+        g_timeout_add(20, (GSourceFunc)on_timer_handler, 
+                (gpointer) interface);
+    }
+}
+
+static gboolean
+on_timer_handler (GtkGifInterace *interface) 
+{
+    get_next_image (interface, TRUE);
+    update_timer (interface);
+    return FALSE;
+}
+
+static void
+switch_running_mode (GtkGifInterace *interface)
+{
+    interface->mode = (interface->mode == GIF_GTK_COMMON_MODE) ?
+            GIF_GTK_SLIDESHOW_MODE : GIF_GTK_COMMON_MODE;
+    update_timer(interface);
+}
+
 static gboolean 
 on_button_press_event (GtkWidget *widget,
         GdkEvent *event,
@@ -377,6 +413,7 @@ on_key_press_event (GtkWidget *widget,
         gpointer data)
 {
     GtkGifInterace *interface = (GtkGifInterace *) data;
+    gboolean switch_to_common_mode = TRUE;
 
     switch (event->keyval) {
     case GDK_Up :
@@ -399,6 +436,17 @@ on_key_press_event (GtkWidget *widget,
     case GDK_KEY_Escape :
         gtk_widget_destroy (interface->gtk.window);
         break;
+
+    case GDK_KEY_R :
+    case GDK_KEY_r :
+        switch_running_mode (interface);
+    default:
+        switch_to_common_mode = FALSE;
+        break;
+    }
+    if (switch_to_common_mode)
+    {
+        interface->mode = GIF_GTK_COMMON_MODE;
     }
 
     return FALSE;
@@ -448,9 +496,9 @@ gtkgif_init (void *data, PContext c)
     interface->gtk.gif_id = gtk_label_new (NULL);
     interface->gtk.image_no = gtk_label_new (NULL);
     gtk_box_pack_start (GTK_BOX(control_area), 
-            interface->gtk.gif_id, TRUE, TRUE,0);
+            interface->gtk.gif_id, TRUE, FALSE,0);
     gtk_box_pack_start (GTK_BOX(control_area), 
-            interface->gtk.image_no, TRUE, TRUE,0);
+            interface->gtk.image_no, TRUE, FALSE,0);
     gtk_misc_set_alignment (GTK_MISC (interface->gtk.gif_id), 0, 0);
     gtk_misc_set_alignment (GTK_MISC (interface->gtk.image_no), 0, 0);
     gtk_misc_set_padding (GTK_MISC(interface->gtk.gif_id), 0, 2);
@@ -463,8 +511,8 @@ gtkgif_init (void *data, PContext c)
 
     drawing_area = gtk_drawing_area_new();
 
-    gtk_box_pack_start (GTK_BOX(main_box), control_area, FALSE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX(main_box), drawing_area, TRUE, TRUE, 0);
+    gtk_box_pack_start (GTK_BOX(main_box), control_area, FALSE, FALSE, 0);
 
     g_signal_connect (window, "delete-event",
             G_CALLBACK (on_delete_event), interface);
@@ -487,6 +535,7 @@ gtkgif_init (void *data, PContext c)
     interface->pixmap = gdk_pixmap_new(window->window, MAX_WIDTH, MAX_HEIGHT, -1);
     interface->drawing_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
             MAX_WIDTH, MAX_HEIGHT);
+    interface->mode = GIF_GTK_COMMON_MODE;
 
     update_image (interface, TRUE);
     //get_random_image (interface, TRUE);

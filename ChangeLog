@@ -61,3 +61,17 @@
     * configure.ac :
     New version 0.1.4
     Other configs updated
+
+2013-08-04 Shvedov Yury <shved@lvk.cs.msu.su>
+
+    * src/gtk_interface.c : Added slideshow mode
+    Key R switch on/off slideshow mode
+    Added timer
+    Control area moved to the bottom
+    Changed image_no output format
+
+    * src/main.c :
+    Description updated
+
+    * configure.ac :
+    New version 0.1.5
