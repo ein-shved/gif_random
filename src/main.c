@@ -77,7 +77,7 @@ int interface_runner (PContext c,
         gif = read_gif (c, (*argv)[i], &error);
         if (!gifptr_correct(gif,c)) {
             put_warning ("Invalid filename '%s'. %s", 
-                    (*argv)[i], GifErrorString());
+                    (*argv)[i], GifErrorString(error));
         }
     }
 
@@ -86,7 +86,7 @@ int interface_runner (PContext c,
         gif = read_gif_handle (c, STDIN_FILENO, &error);
         if (!gifptr_correct(gif,c)) {
             put_error (error, "Can not read from stdin. %s", 
-                    GifErrorString());
+                    GifErrorString(error));
         }
     }
     g_option_context_free (option_context);

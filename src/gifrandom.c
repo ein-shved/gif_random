@@ -70,7 +70,7 @@ static int
 gif_slurp_check (GifFileType *gifFile) {
     if ( gifFile->ImageCount <= 0 ) {
         if ( DGifSlurp (gifFile) == GIF_ERROR) {
-            put_warning ("%s", GifErrorString());
+            put_warning ("%s", GifErrorString(gifFile->Error));
             return -1;
         };
     }
@@ -85,12 +85,11 @@ read_gif (PContext c, const char *filename, int *error)
     int filename_size;
     GifExtra *gif_extra;
 
-    gif = DGifOpenFileName (filename);
+    gif = DGifOpenFileName (filename, error);
     if (gif != NULL) {
         g_ptr_array_add (c->gifs, gif);
         result = c->gifs->len - 1;
     } else {
-        *error = GifError();
         result = -1;
         return result;
     }
@@ -119,11 +118,10 @@ read_gif_handle (PContext c, int handle, int *error)
 {
     GifFileType *gif;
     int result = 0;
-    gif = DGifOpenFileHandle (handle);
+    gif = DGifOpenFileHandle (handle, error);
     if (gif != NULL) {
         g_ptr_array_add (c->gifs, gif);
     } else {
-        *error = GifError();
         result = -1;
     }
     return result;
