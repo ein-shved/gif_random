@@ -36,10 +36,13 @@ typedef struct GtkGifWidgets {
 
     GtkWidget *control_area;    //Area of text at the bottom of window
     int control_area_height;    //Heigth of this area
-    int control_area_width;     //Height of this area
+    int control_area_width;     //Width of this area
+
+    GtkWidget *menu_bar;        //Menu bar, didn't expect? =)
+    int menu_bar_height;        //Heigth of menu bar
 
     GtkWidget *gif_id;          //Label with gif file name
-    GtkWidget *image_no;        //Label with current image nomber
+    GtkWidget *image_no;        //Label with current image number
 
 } GtkGifWidgets;
 
@@ -170,7 +173,8 @@ display_image (gpointer data)
             > interface->gtk.control_area_width ?
             width : interface->gtk.control_area_width;
     gdkGeometry.min_height = height
-            + interface->gtk.control_area_height;
+            + interface->gtk.control_area_height
+            + interface->gtk.menu_bar_height;
 
     gtk_window_set_default_size (GTK_WINDOW(window), gdkGeometry.min_width,
             gdkGeometry.min_height);
@@ -263,7 +267,10 @@ update_image (GtkGifInterace *interface, gboolean display)
     image_no_width = natural_size.width;
     
     interface->gtk.control_area_width = gif_id_width + image_no_width + 10;
-    interface->gtk.control_area_height = natural_size.height + 2;
+    interface->gtk.control_area_height = natural_size.height;
+
+    gtk_widget_size_request (interface->gtk.menu_bar, &natural_size);
+    interface->gtk.menu_bar_height = natural_size.height;
 
     if (display) {
         display_image (interface);
@@ -494,11 +501,60 @@ on_key_press_event (GtkWidget *widget,
     return FALSE;
 }
 
+static void
+on_menu (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    g_message("Menu!\n");
+}
+
+static GtkWidget *
+build_main_menu (GtkWidget *window,
+        GtkGifInterace *interface)
+{
+/*    static GtkItemFactoryEntry menu_items [] = {
+        { "/_File",                     NULL,           NULL,                   0, "<Branch>"       },
+        { "/File/_Open",                "<control>O",   G_CALLBACK(on_menu),    0, NULL             },
+        { "/File/_Quit",                "<control>Q",   G_CALLBACK(on_menu)     0, NULL             },
+        { "/_Control",                  NULL,           NULL,                   0, "<Brunch>"       },
+        { "/Control/_Random",           "<return>",     G_CALLBAXK(on_menu),    0, NULL             },
+        { "/Control/_Next Image",       "<right>",      G_CALLBACK(on_menu),    0, NULL             },
+        { "/Control/_Previous Image",   "<left>",       G_CALLBACK(on_menu),    0, NULL             },
+        { "/Control/Next File",         "<pg_up>",      G_CALLBACK(on_menu),    0, NULL             },
+        { "/Control/Previous File",     "<pg_down>",    G_CALLBACK(on_menu),    0, NULL             },
+        { "/Control/_Slideshow",        "R",            G_CALLBACK(on_menu),    0, NULL             },
+        { "/_Help",                     NULL,           NULL,                   0, "<LastBranch>"   },
+        { "/Help/_About",               "F1",           G_CALLBACK(on_menu),    0, NULL             }};*/
+
+    GtkWidget *menu_bar;
+    GtkWidget *file_item;
+    GtkWidget *file_menu;
+    GtkWidget *menu_item;
+
+    GtkRequisition natural_size;
+
+    interface->gtk.menu_bar = menu_bar = gtk_menu_bar_new();
+    file_item = gtk_menu_item_new_with_label("File");
+    file_menu = gtk_menu_new();
+    menu_item = gtk_menu_item_new_with_label("Open");
+
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(file_item), file_menu);
+    gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), menu_item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), file_item);
+    g_signal_connect(G_OBJECT(menu_item), "activate",
+            G_CALLBACK(on_menu), NULL);
+
+    gtk_widget_size_request (menu_bar, &natural_size);
+    interface->gtk.menu_bar_height = natural_size.height;
+
+    return menu_bar;
+}
+
 void
 gtkgif_init (void *data, PContext c) 
 {
     GtkGifInterace *interface = NULL;
-    GtkWidget *window, *drawing_area, *control_area, *main_box;
+    GtkWidget *window, *drawing_area, *control_area, *main_box, *menu_bar;
     gtkgif_init_data *gg_id = (gtkgif_init_data *) data;
     cairo_t *cr_pixmap;
     int error;
@@ -552,7 +608,9 @@ gtkgif_init (void *data, PContext c)
     gtk_widget_show (interface->gtk.control_area);
 
     drawing_area = gtk_drawing_area_new();
+    menu_bar = build_main_menu(window, interface);
 
+    gtk_box_pack_start (GTK_BOX(main_box), menu_bar, FALSE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX(main_box), drawing_area, TRUE, TRUE, 0);
     gtk_box_pack_start (GTK_BOX(main_box), control_area, FALSE, FALSE, 0);
 
