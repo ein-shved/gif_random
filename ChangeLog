@@ -75,3 +75,11 @@
 
     * configure.ac :
     New version 0.1.5
+
+2013-08-20 Shvedov Yury <shved@lvk.cs.msu.su>
+    
+    * configure.ac :
+    Dependences checking was added
+
+    * examples/*.gif :
+    Renaming to sensible names.
