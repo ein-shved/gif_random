@@ -26,26 +26,30 @@
 #include <stdio.h>
 #include <time.h>
 #include <gdk/gdkkeysyms.h>
+#include <string.h>
 
-
+//Contain information, connected only with gtk widgets
 typedef struct GtkGifWidgets {
-    GtkWidget *window;
-    GtkWidget *main_box;
-    GtkWidget *drawing_area;
+    GtkWidget *window;          //Main window itself
+    GtkWidget *main_box;        //Box, containig all elements
+    GtkWidget *drawing_area;    //Simple to guess =)
 
-    GtkWidget *control_area;
-    int control_area_height;
+    GtkWidget *control_area;    //Area of text at the bottom of window
+    int control_area_height;    //Heigth of this area
+    int control_area_width;     //Height of this area
 
-    GtkWidget *gif_id;
-    GtkWidget *image_no;
+    GtkWidget *gif_id;          //Label with gif file name
+    GtkWidget *image_no;        //Label with current image nomber
 
 } GtkGifWidgets;
 
+//Modes of work
 typedef enum GtkGifRunningMode {
-    GIF_GTK_COMMON_MODE,
-    GIF_GTK_SLIDESHOW_MODE
+    GIF_GTK_COMMON_MODE,        //Frizzing images, user slide them by himself
+    GIF_GTK_SLIDESHOW_MODE      //Images running like in simple gif whatching program
 } GifGtkRunningMode;
 
+//Contain all information, needed by gtk gui
 typedef struct GtkGifInterace {
     GtkGifWidgets gtk;
     
@@ -54,6 +58,7 @@ typedef struct GtkGifInterace {
     GdkPixmap *pixmap;
     GifSnapshoot *image_data;
     PContext gif_context;
+    GdkColor bg_color;
 
     int gif_no, image_no;
     GifGtkRunningMode mode;
@@ -71,12 +76,10 @@ on_delete_event( GtkWidget *widget,
     return FALSE;
 }
 
-static void 
+static gboolean
 on_destroy( GtkWidget *widget,
-    gpointer   data )
+        GtkGifInterace *interface)
 {
-    GtkGifInterace *interface = (GtkGifInterace *) data;
-
     if (interface->image != NULL) {
         cairo_surface_destroy (interface->image);
         interface->image = NULL;
@@ -95,6 +98,17 @@ on_destroy( GtkWidget *widget,
     }
 
     gtk_main_quit ();
+
+    return FALSE;
+}
+
+static gboolean
+on_map (GtkWidget *widget, GdkEvent *event,
+        GtkGifInterace *interface)
+{
+    interface->bg_color = gtk_widget_get_style(widget)->
+            mid[GTK_STATE_NORMAL];
+    return FALSE;
 }
 
 static void 
@@ -116,6 +130,8 @@ on_expose_event(GtkWidget *widget,
         gpointer data)
 {
     GtkGifInterace *interface = (GtkGifInterace *) data;
+    interface->bg_color = gtk_widget_get_style(widget)->
+            mid[GTK_STATE_NORMAL];
     gdk_draw_drawable(widget->window,
         widget->style->fg_gc[GTK_WIDGET_STATE(widget)], interface->pixmap,
         // Only copy the area that was exposed.
@@ -132,27 +148,37 @@ display_image (gpointer data)
     GtkGifInterace *interface = (GtkGifInterace *) data;
     GtkWidget *window = interface->gtk.window;
     cairo_surface_t *image;
-    cairo_t *cr, *cr_pixmap;
+    cairo_t *cr, *cr_pixmap, *cr_background;
 
     int width, height;
+    int top, left;
     GifSnapshoot *image_data = interface->image_data;
     GdkGeometry gdkGeometry;
     cairo_status_t status;
+
+    interface->bg_color = gtk_widget_get_style(window)->black;
+            //dark[GTK_STATE_NORMAL];
 
     width = image_data->width;
     height = image_data->height ;
 
     //Set size to image geometry.
 
-    gdkGeometry.min_width = width;
+    //printf ("widths: %d, %d\n",width, interface->gtk.control_area_width);
+
+    gdkGeometry.min_width = width 
+            > interface->gtk.control_area_width ?
+            width : interface->gtk.control_area_width;
     gdkGeometry.min_height = height
             + interface->gtk.control_area_height;
 
-    gtk_window_set_default_size (GTK_WINDOW(window), width, height
-            + interface->gtk.control_area_height);
+    gtk_window_set_default_size (GTK_WINDOW(window), gdkGeometry.min_width,
+            gdkGeometry.min_height);
     gtk_window_set_geometry_hints (GTK_WINDOW(window), window,
             &gdkGeometry,GDK_HINT_MIN_SIZE);
 
+    left = (gdkGeometry.min_width - width)/2;
+    top = 0;//(gdkGeometry.min_height - height)/2;
 
     //Prepare image to uploading
 
@@ -161,7 +187,7 @@ display_image (gpointer data)
         interface->image = NULL;
     }
 
-    //Uploading image from interface' data to cairo_surface
+    //Uploading image from interface's data to cairo_surface
     
     interface->image = cairo_image_surface_create_for_data (
            image_data->pixmap, CAIRO_FORMAT_RGB24, width, height, 
@@ -175,10 +201,17 @@ display_image (gpointer data)
     }
 
     //Drawing image
+    cr_background = cairo_create (interface->drawing_surface);
+    cairo_set_source_rgb (cr_background, 
+            interface->bg_color.red, 
+            interface->bg_color.green, 
+            interface->bg_color.blue); 
+    cairo_paint (cr_background);
+    cairo_destroy (cr_background);
 
     image = interface->image;
     cr = cairo_create (interface->drawing_surface);
-    cairo_set_source_surface (cr, image, 0, 0);
+    cairo_set_source_surface (cr, image, left, top);
     cairo_paint (cr);
     cairo_destroy (cr);
 
@@ -197,6 +230,8 @@ update_image (GtkGifInterace *interface, gboolean display)
     const char *filename = NULL;
     char image_no[IMAGE_INFO_LINE_LEN]; 
     int number_len;
+    GtkRequisition natural_size;
+    int gif_id_width = 0, image_no_width = 0;
 
     update_drawing_data (interface);
 
@@ -219,10 +254,17 @@ update_image (GtkGifInterace *interface, gboolean display)
     if (number_len >= IMAGE_INFO_LINE_LEN) {
         put_error (1,"Pehaps, overflow");
     }
-
     gtk_label_set_text (GTK_LABEL(interface->gtk.image_no), 
             image_no);
-   
+
+    gtk_widget_size_request (interface->gtk.gif_id, &natural_size);
+    gif_id_width = natural_size.width;
+    gtk_widget_size_request (interface->gtk.image_no, &natural_size);
+    image_no_width = natural_size.width;
+    
+    interface->gtk.control_area_width = gif_id_width + image_no_width + 10;
+    interface->gtk.control_area_height = natural_size.height + 2;
+
     if (display) {
         display_image (interface);
     }
@@ -492,11 +534,11 @@ gtkgif_init (void *data, PContext c)
     gtk_window_set_title(GTK_WINDOW(window), "Random Gif");
 
     interface->gtk.control_area = control_area
-            = gtk_hbox_new (TRUE, 0);
+            = gtk_hbox_new (FALSE, 0);
     interface->gtk.gif_id = gtk_label_new (NULL);
     interface->gtk.image_no = gtk_label_new (NULL);
     gtk_box_pack_start (GTK_BOX(control_area), 
-            interface->gtk.gif_id, TRUE, FALSE,0);
+            interface->gtk.gif_id, TRUE, TRUE,0);
     gtk_box_pack_start (GTK_BOX(control_area), 
             interface->gtk.image_no, TRUE, FALSE,0);
     gtk_misc_set_alignment (GTK_MISC (interface->gtk.gif_id), 0, 0);
@@ -518,6 +560,8 @@ gtkgif_init (void *data, PContext c)
             G_CALLBACK (on_delete_event), interface);
     g_signal_connect (window, "destroy",
             G_CALLBACK (on_destroy), interface);
+    g_signal_connect (window, "map-event",
+            G_CALLBACK (on_map), interface);
     g_signal_connect (drawing_area, "expose-event",
             G_CALLBACK (on_expose_event), interface);
     g_signal_connect (window, "key-press-event",

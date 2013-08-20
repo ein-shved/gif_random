@@ -83,3 +83,6 @@
 
     * examples/*.gif :
     Renaming to sensible names.
+
+    * src/gtk_interface.c :
+    Corrected the width issue
