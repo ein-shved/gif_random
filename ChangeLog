@@ -86,3 +86,22 @@
 
     * src/gtk_interface.c :
     Corrected the width issue
+
+2013-08-21 Shvedov Yury <shved@lvk.cs.msu.su>
+
+    * src/gtk_interface.c :
+    Menu bar with many menu items was added
+    Callabck functions on_menu_* was added for menu bar work
+    About dialog added
+    Help dialog added
+    Toolbar added
+
+    * src/gtk_interface.h :
+    get_help fild was added to gtkgif_init_data struct for gedding desctiption string from main
+
+    * src/main.c : 
+    get_help_string function was added
+
+    * configure.ac :
+    New version 0.1.6
+

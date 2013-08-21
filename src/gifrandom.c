@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <gio/gio.h>
 
 struct Context {
     GPtrArray *gifs;
@@ -77,6 +78,59 @@ gif_slurp_check (GifFileType *gifFile) {
     return 0;
 }
 
+gboolean
+duplicated_file_check (PContext c, const char *filename) 
+{
+    GError *error = NULL;
+    GFile *new_file, *old_file;
+    GFileInfo *new_file_info, *old_file_info;
+    char *new_file_id, *old_file_id;
+    int i;
+    gboolean result = TRUE;
+
+    new_file = g_file_new_for_path(filename);
+    new_file_info = g_file_query_info (new_file,G_FILE_ATTRIBUTE_ID_FILE,G_FILE_QUERY_INFO_NONE,NULL, &error);
+    if (new_file_info != NULL) {
+        old_file_id = g_file_info_get_attribute_as_string(new_file_info,G_FILE_ATTRIBUTE_ID_FILE);
+    } else {
+        old_file_id = NULL;
+    }
+
+    for (i=0; i < c->gifs->len; ++i) {
+        old_file = g_file_new_for_path (get_gif_filename(c,i));
+        if (!g_file_equal (new_file, old_file)) {
+            if ( new_file_id != NULL) {
+                old_file_info = g_file_query_info (old_file,G_FILE_ATTRIBUTE_ID_FILE,G_FILE_QUERY_INFO_NONE,NULL, &error);
+                if (old_file_info != NULL) {
+                    old_file_id = g_file_info_get_attribute_as_string(new_file_info,G_FILE_ATTRIBUTE_ID_FILE);
+                    if (old_file_id != NULL) {
+                        if (!strcmp(new_file_id,old_file_id)){
+                            result = FALSE;
+                        }
+                        g_free(old_file_id);
+                    }
+                    g_object_unref(old_file_info);
+                }
+            }
+        } else {
+            result = FALSE;
+        }
+        g_object_unref(old_file);
+        if (!result) {
+            break;
+        }
+    }
+    if (new_file_id != NULL) {
+        g_free(new_file_id);
+    }
+    if (new_file_info != NULL) {
+        g_object_unref(new_file_info);
+    }
+    g_object_unref(new_file);
+
+    return result;
+}
+
 int
 read_gif (PContext c, const char *filename, int *error)
 {
@@ -84,6 +138,11 @@ read_gif (PContext c, const char *filename, int *error)
     int result;
     int filename_size;
     GifExtra *gif_extra;
+
+    if (!duplicated_file_check(c, filename)) {
+        printf ("File '%s' is already loaded\n",filename);
+        return 0;
+    }
 
     gif = DGifOpenFileName (filename, error);
     if (gif != NULL) {

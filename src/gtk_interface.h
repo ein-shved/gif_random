@@ -28,10 +28,14 @@
 
 typedef int (*ContextRunner) (PContext c, 
         int *argc, char ***argv, void *user_data);
+
+typedef const char *(*HelpStringGetter) (PContext c, void *user_data);
+
 typedef struct gtkgif_init_data {
     int *argc;
     char ***argv;
     ContextRunner runner;
+    HelpStringGetter get_help;
     void *user_data;
 } gtkgif_init_data;
 

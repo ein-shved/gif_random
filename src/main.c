@@ -28,8 +28,7 @@
 
 static const char *
 description =
-"If no files specified in arguments, one file will be read\n"
-"from stdin. You can shift in files freely.\n"
+"You can shift within files freely.\n"
 "Use arrows Up or Right to switch on next picture in gif.\n"
 "Use arrows Down or Left to switch on previous picture in gif.\n"
 "Use Return or Mouse button to choose picture randomly.\n"
@@ -80,21 +79,14 @@ int interface_runner (PContext c,
                     (*argv)[i], GifErrorString(error));
         }
     }
-
-    if ( *argc <= 1 && !version) {
-        printf ("No file specified, reading from stdin.\n");
-        gif = read_gif_handle (c, STDIN_FILENO, &error);
-        if (!gifptr_correct(gif,c)) {
-            put_error (error, "Can not read from stdin. %s", 
-                    GifErrorString(error));
-        }
-    }
     g_option_context_free (option_context);
 
-    if ( get_gif_count (c) <= 0) {
-        return 1;
-    }
     return 0;
+}
+
+const char * get_help_string (PContext c, void *user_data)
+{
+    return description;
 }
 
 int
@@ -107,6 +99,7 @@ main (int argc, char *argv[])
     gtkgif_data.argc = &argc;
     gtkgif_data.argv = &argv;
     gtkgif_data.runner = interface_runner;
+    gtkgif_data.get_help = get_help_string;
 
     c = create_context(gtkgif_init, &gtkgif_data);
     

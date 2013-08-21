@@ -21,28 +21,35 @@
  */
 
 #include "gtk_interface.h"
+#include "../config.h"
+
 #include <stdlib.h>
 #include <cairo.h>
 #include <stdio.h>
 #include <time.h>
 #include <gdk/gdkkeysyms.h>
 #include <string.h>
+#include <math.h>
 
 //Contain information, connected only with gtk widgets
 typedef struct GtkGifWidgets {
-    GtkWidget *window;          //Main window itself
-    GtkWidget *main_box;        //Box, containig all elements
-    GtkWidget *drawing_area;    //Simple to guess =)
+    GtkWidget *window;              //Main window itself
+    GtkWidget *main_box;            //Box, containig all elements
+    GtkWidget *drawing_area;        //Simple to guess =)
 
-    GtkWidget *control_area;    //Area of text at the bottom of window
-    int control_area_height;    //Heigth of this area
-    int control_area_width;     //Width of this area
+    GtkWidget *control_area;        //Area of text at the bottom of window
+    int control_area_height;        //Heigth of this area
+    int control_area_width;         //Width of this area
 
-    GtkWidget *menu_bar;        //Menu bar, didn't expect? =)
-    int menu_bar_height;        //Heigth of menu bar
+    GtkWidget *menu_bar;            //Menu bar. Didn't expect? =)
+    GtkWidget *toolbar;             //Toolbar. Still surprise? ;-)
+    int menu_bar_height;            //Heigth of menu bar with toolbar
+    int menu_bar_width;             //Max width between menu bar and toolbar
 
-    GtkWidget *gif_id;          //Label with gif file name
-    GtkWidget *image_no;        //Label with current image number
+    GtkToolItem *slideshow_item;    //Item from toolbar to toggle its icon
+
+    GtkWidget *gif_id;              //Label with gif file name
+    GtkWidget *image_no;            //Label with current image number
 
 } GtkGifWidgets;
 
@@ -65,6 +72,8 @@ typedef struct GtkGifInterace {
 
     int gif_no, image_no;
     GifGtkRunningMode mode;
+
+    const char *help_string;
 } GtkGifInterace;
 
 
@@ -145,6 +154,8 @@ on_expose_event(GtkWidget *widget,
     return FALSE;
 }
 
+#define DEFAULT_DRAWING_AREA_SIZE 100
+
 static gboolean
 display_image (gpointer data)
 {
@@ -162,16 +173,18 @@ display_image (gpointer data)
     interface->bg_color = gtk_widget_get_style(window)->black;
             //dark[GTK_STATE_NORMAL];
 
-    width = image_data->width;
-    height = image_data->height ;
+    if (image_data != NULL) {
+        width = image_data->width;
+        height = image_data->height;
+    } else {
+        width = height = DEFAULT_DRAWING_AREA_SIZE;
+    }
 
     //Set size to image geometry.
 
-    //printf ("widths: %d, %d\n",width, interface->gtk.control_area_width);
-
-    gdkGeometry.min_width = width 
-            > interface->gtk.control_area_width ?
-            width : interface->gtk.control_area_width;
+    gdkGeometry.min_width = fmax (width, 
+            fmax (interface->gtk.control_area_width,
+            interface->gtk.menu_bar_width));
     gdkGeometry.min_height = height
             + interface->gtk.control_area_height
             + interface->gtk.menu_bar_height;
@@ -191,20 +204,11 @@ display_image (gpointer data)
         interface->image = NULL;
     }
 
-    //Uploading image from interface's data to cairo_surface
-    
-    interface->image = cairo_image_surface_create_for_data (
-           image_data->pixmap, CAIRO_FORMAT_RGB24, width, height, 
-           cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, width));
+    //Drawing background
 
-    status = cairo_surface_status(interface->image);
-
-    if ( status != CAIRO_STATUS_SUCCESS) {
-        put_error ( status, "Can not load image, because \'%s\'", 
-            cairo_status_to_string(status) );
-    }
-
-    //Drawing image
+    //TODO: resolve this!
+    interface->bg_color = gtk_widget_get_style(window)->
+            black;//base[GTK_STATE_NORMAL];
     cr_background = cairo_create (interface->drawing_surface);
     cairo_set_source_rgb (cr_background, 
             interface->bg_color.red, 
@@ -213,11 +217,26 @@ display_image (gpointer data)
     cairo_paint (cr_background);
     cairo_destroy (cr_background);
 
-    image = interface->image;
-    cr = cairo_create (interface->drawing_surface);
-    cairo_set_source_surface (cr, image, left, top);
-    cairo_paint (cr);
-    cairo_destroy (cr);
+    if (image_data != NULL) {
+        //Uploading image from interface's data to cairo_surface
+        interface->image = cairo_image_surface_create_for_data (
+               image_data->pixmap, CAIRO_FORMAT_RGB24, width, height, 
+               cairo_format_stride_for_width (CAIRO_FORMAT_RGB24, width));
+
+        status = cairo_surface_status(interface->image);
+
+        if ( status != CAIRO_STATUS_SUCCESS) {
+            put_error ( status, "Can not load image, because \'%s\'", 
+                cairo_status_to_string(status) );
+        }
+
+        //Drawing image
+        image = interface->image;
+        cr = cairo_create (interface->drawing_surface);
+        cairo_set_source_surface (cr, image, left, top);
+        cairo_paint (cr);
+        cairo_destroy (cr);
+    }
 
     cr_pixmap = gdk_cairo_create(interface->pixmap);
     cairo_set_source_surface(cr_pixmap, interface->drawing_surface, 0,0);
@@ -239,27 +258,32 @@ update_image (GtkGifInterace *interface, gboolean display)
 
     update_drawing_data (interface);
 
-    interface->image_data = get_snapshoot_pos (c, interface->gif_no,
-            interface->image_no);
-    if (interface->image_data == NULL) {
-        put_warning ("Can not get image.");
-        return;
-    }
+    if (get_gif_count(c) > 0 ) {
+        interface->image_data = get_snapshoot_pos (c, interface->gif_no,
+                interface->image_no);
+        if (interface->image_data == NULL) {
+            put_warning ("Can not get image.");
+            return;
+        }
 
-    filename = get_gif_filename (c,interface->gif_no);
-    if (filename == NULL) {
-        filename = "Unknown dada source";
-    }
-    gtk_label_set_text (GTK_LABEL(interface->gtk.gif_id), 
-            filename);
+        filename = g_path_get_basename(get_gif_filename (c,interface->gif_no));
+        if (filename == NULL) {
+            filename = "Unknown data source";
+        }     
+        gtk_label_set_text (GTK_LABEL(interface->gtk.gif_id), 
+                filename);
 
-    number_len = sprintf(image_no, "image %d/%d", 
-        interface->image_no+1, get_gif_image_count(c,interface->gif_no) );
-    if (number_len >= IMAGE_INFO_LINE_LEN) {
-        put_error (1,"Pehaps, overflow");
+        number_len = sprintf(image_no, "image %d/%d", 
+            interface->image_no+1, get_gif_image_count(c,interface->gif_no) );
+        if (number_len >= IMAGE_INFO_LINE_LEN) {
+            put_error (1,"Pehaps, overflow");
+        }
+        gtk_label_set_text (GTK_LABEL(interface->gtk.image_no), 
+                image_no);
+    } else {
+        gtk_label_set_text (GTK_LABEL(interface->gtk.image_no), 
+                "No files cpecified");
     }
-    gtk_label_set_text (GTK_LABEL(interface->gtk.image_no), 
-            image_no);
 
     gtk_widget_size_request (interface->gtk.gif_id, &natural_size);
     gif_id_width = natural_size.width;
@@ -271,6 +295,21 @@ update_image (GtkGifInterace *interface, gboolean display)
 
     gtk_widget_size_request (interface->gtk.menu_bar, &natural_size);
     interface->gtk.menu_bar_height = natural_size.height;
+    interface->gtk.menu_bar_width = natural_size.width;
+
+    gtk_widget_size_request (interface->gtk.toolbar, &natural_size);
+    interface->gtk.menu_bar_height += natural_size.height;
+    interface->gtk.menu_bar_width = fmax (natural_size.width, interface->gtk.menu_bar_width);
+
+    if (interface->gtk.slideshow_item != NULL) {
+        if (interface->mode == GIF_GTK_SLIDESHOW_MODE) {
+            gtk_tool_button_set_stock_id (GTK_TOOL_BUTTON(interface->gtk.slideshow_item),
+                GTK_STOCK_MEDIA_PAUSE);
+        } else {
+            gtk_tool_button_set_stock_id (GTK_TOOL_BUTTON(interface->gtk.slideshow_item),
+                GTK_STOCK_MEDIA_PLAY);
+        }
+    }
 
     if (display) {
         display_image (interface);
@@ -416,6 +455,40 @@ get_preavious_gif (GtkGifInterace *interface, gboolean display)
     return;
 }
 
+static void
+show_about_dialog (GtkGifInterace *interface) 
+{
+    GtkWidget *dialog = gtk_about_dialog_new();
+    
+    gtk_about_dialog_set_name(GTK_ABOUT_DIALOG(dialog), PACKAGE_NAME);
+    gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(dialog), PACKAGE_VERSION); 
+    gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(dialog), 
+        "(c) "PACKAGE_BUGREPORT);
+    gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dialog), 
+        PACKAGE_NAME " is a simple tool for gif files seecking. "
+        "E.g. to choose film from gif with many philms' covers.");
+    gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dialog), 
+        "http://github.com/ein-shved/gif_random");
+    gtk_dialog_run(GTK_DIALOG (dialog));
+    gtk_widget_destroy(dialog);
+}
+
+static void
+show_help_dialog (GtkGifInterace *interface) 
+{
+    GtkWidget *dialog;
+
+    dialog = gtk_message_dialog_new (GTK_WINDOW(interface->gtk.window),
+            GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_INFO,
+            GTK_BUTTONS_CLOSE,
+            PACKAGE_STRING);
+    gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG(dialog),
+            "%s", interface->help_string);
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}
+
 static gboolean
 on_timer_handler (GtkGifInterace *interface);
 
@@ -451,7 +524,10 @@ on_button_press_event (GtkWidget *widget,
 {
     GtkGifInterace *interface = (GtkGifInterace *) data;
 
+    interface->mode = GIF_GTK_COMMON_MODE;
     get_random_image (interface, TRUE);
+
+    gtk_widget_grab_focus (interface->gtk.drawing_area);
 
     return FALSE;
 }
@@ -485,6 +561,12 @@ on_key_press_event (GtkWidget *widget,
     case GDK_KEY_Escape :
         gtk_widget_destroy (interface->gtk.window);
         break;
+    case GDK_KEY_F1 :
+        show_help_dialog (interface);
+        break;
+    case GDK_KEY_F2 :
+        show_about_dialog (interface);
+        break;
 
     case GDK_KEY_R :
     case GDK_KEY_r :
@@ -502,10 +584,120 @@ on_key_press_event (GtkWidget *widget,
 }
 
 static void
-on_menu (GtkWidget *widget,
+on_menu_open (GtkWidget *widget,
         GtkGifInterace *interface)
 {
-    g_message("Menu!\n");
+    GtkWidget *dialog;
+    GSList *files, *files_it;
+    GtkFileFilter *gif_filter, *all_filter;
+    int error;
+    gboolean files_opend;
+
+    dialog = gtk_file_chooser_dialog_new( "Open gif file",
+            GTK_WINDOW(interface->gtk.window), GTK_FILE_CHOOSER_ACTION_OPEN,
+            GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+     		GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
+     		NULL);
+
+    gif_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name (gif_filter, "Gif");
+    gtk_file_filter_add_mime_type (gif_filter, "image/gif");
+
+    all_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name (all_filter, "All types");
+    gtk_file_filter_add_pattern (all_filter, "*");
+
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), gif_filter);
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
+    gtk_file_chooser_set_select_multiple (GTK_FILE_CHOOSER(dialog), TRUE);
+
+    files_opend = get_gif_count(interface->gif_context) > 0;
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        files = files_it = gtk_file_chooser_get_filenames (GTK_FILE_CHOOSER(dialog));
+        
+        while (files_it != NULL) {
+            if (read_gif (interface->gif_context, (char*) files_it->data, &error) < 0) {
+                put_warning ("Can not read file '%s'", (char*) files_it->data);
+            }
+            g_free(files_it->data);
+            files_it = files_it->next;
+        }
+        g_slist_free(files);
+    }
+    gtk_widget_destroy (dialog);
+
+    if (!files_opend) {
+        update_image(interface, TRUE);
+    }
+}
+
+static void
+on_menu_quit (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+        gtk_widget_destroy (interface->gtk.window);
+}
+
+static void
+on_menu_random (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    interface->mode = GIF_GTK_COMMON_MODE;
+    get_random_image (interface, TRUE);
+}
+
+static void
+on_menu_next_image (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    interface->mode = GIF_GTK_COMMON_MODE;
+    get_next_image (interface, TRUE);
+}
+
+static void
+on_menu_previous_image (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    interface->mode = GIF_GTK_COMMON_MODE;
+    get_previous_image (interface, TRUE);
+}
+
+static void
+on_menu_next_file (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    interface->mode = GIF_GTK_COMMON_MODE;
+    get_next_gif (interface, TRUE);
+}
+
+static void
+on_menu_previous_file (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    interface->mode = GIF_GTK_COMMON_MODE;
+    get_preavious_gif (interface, TRUE);
+}
+
+static void
+on_menu_toggle_slideshow(GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+    switch_running_mode (interface);
+}
+
+static void
+on_menu_about (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+        show_about_dialog (interface);
+}
+
+static void
+on_menu_help (GtkWidget *widget,
+        GtkGifInterace *interface)
+{
+        show_help_dialog (interface);
 }
 
 static GtkWidget *
@@ -527,34 +719,115 @@ build_main_menu (GtkWidget *window,
         { "/Help/_About",               "F1",           G_CALLBACK(on_menu),    0, NULL             }};*/
 
     GtkWidget *menu_bar;
-    GtkWidget *file_item;
-    GtkWidget *file_menu;
+    GtkWidget *head_item;
+    GtkWidget *head_menu;
     GtkWidget *menu_item;
+    GtkAccelGroup *accel_group = NULL;
 
-    GtkRequisition natural_size;
+#define PUT_HEAD_MENU_MNEMONIC(mnemonic) \
+    head_item = gtk_menu_item_new_with_mnemonic(mnemonic); \
+    head_menu = gtk_menu_new(); \
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(head_item), head_menu); \
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), head_item);
 
+#define PUT_MENU_FROM_STOCK_CALLBACK(stock,callback) \
+    menu_item = gtk_image_menu_item_new_from_stock(stock, accel_group); \
+    gtk_menu_shell_append(GTK_MENU_SHELL(head_menu), menu_item); \
+    g_signal_connect(G_OBJECT(menu_item), "activate", \
+            G_CALLBACK(callback), interface);
+
+#define PUT_MENU_SEPARATOR \
+    menu_item = gtk_separator_menu_item_new();\
+    gtk_menu_shell_append(GTK_MENU_SHELL(head_menu), menu_item);
+
+#define PUT_MENU_MNEMONIC_CALLBACK(mnemonic,callback)\
+    menu_item = gtk_menu_item_new_with_mnemonic(mnemonic); \
+    gtk_menu_shell_append(GTK_MENU_SHELL(head_menu), menu_item);\
+    g_signal_connect(G_OBJECT(menu_item), "activate",\
+            G_CALLBACK(callback), interface);
+
+    accel_group = gtk_accel_group_new();
+    gtk_window_add_accel_group (GTK_WINDOW(window),accel_group);
     interface->gtk.menu_bar = menu_bar = gtk_menu_bar_new();
-    file_item = gtk_menu_item_new_with_label("File");
-    file_menu = gtk_menu_new();
-    menu_item = gtk_menu_item_new_with_label("Open");
 
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(file_item), file_menu);
-    gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), menu_item);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), file_item);
-    g_signal_connect(G_OBJECT(menu_item), "activate",
-            G_CALLBACK(on_menu), NULL);
+    //File submenu
+    PUT_HEAD_MENU_MNEMONIC ("_File");
+    PUT_MENU_FROM_STOCK_CALLBACK (GTK_STOCK_OPEN, on_menu_open);
+    PUT_MENU_SEPARATOR;
+    PUT_MENU_FROM_STOCK_CALLBACK (GTK_STOCK_QUIT, on_menu_quit);
+    
+    //Control submenu
+    PUT_HEAD_MENU_MNEMONIC ("_Control");
+    PUT_MENU_MNEMONIC_CALLBACK ("_Random",on_menu_random);
+    PUT_MENU_SEPARATOR;
+    PUT_MENU_MNEMONIC_CALLBACK ("_Next Image",on_menu_next_image);
+    PUT_MENU_MNEMONIC_CALLBACK ("_Previous Image",on_menu_previous_image);
+    PUT_MENU_SEPARATOR;
+    PUT_MENU_MNEMONIC_CALLBACK ("N_ext file",on_menu_next_file);
+    PUT_MENU_MNEMONIC_CALLBACK ("P_revious file",on_menu_previous_file);
+    PUT_MENU_SEPARATOR;
+    PUT_MENU_MNEMONIC_CALLBACK ("_Toggle slideshow",on_menu_toggle_slideshow);
 
-    gtk_widget_size_request (menu_bar, &natural_size);
-    interface->gtk.menu_bar_height = natural_size.height;
+    //Help menu
+    PUT_HEAD_MENU_MNEMONIC ("_Help");
+    PUT_MENU_FROM_STOCK_CALLBACK (GTK_STOCK_HELP, on_menu_help);
+    PUT_MENU_FROM_STOCK_CALLBACK (GTK_STOCK_ABOUT, on_menu_about);
 
     return menu_bar;
+
+#undef PUT_HEAD_MENU_MNEMONIC
+#undef PUT_MENU_FROM_STOCK_CALLBACK
+#undef PUT_MENU_SEPARATOR
+#undef PUT_MENU_MNEMONIC_CALLBACK
+
+}
+
+static GtkWidget *
+build_toolbar (GtkWidget *window,
+        GtkGifInterace *interface)
+{
+    GtkWidget *toolbar;
+    GtkToolItem *tool_item;
+
+    interface->gtk.toolbar = toolbar = gtk_toolbar_new();
+    gtk_toolbar_set_style(GTK_TOOLBAR(toolbar), GTK_TOOLBAR_ICONS);
+    gtk_container_set_border_width(GTK_CONTAINER(toolbar), 2);
+    gtk_toolbar_set_icon_size(GTK_TOOLBAR(toolbar), GTK_ICON_SIZE_SMALL_TOOLBAR);
+    gtk_toolbar_set_show_arrow(GTK_TOOLBAR(toolbar), FALSE);
+
+#define PUT_TOOLBAR_STOK_CALLBACK(stock,callback) \
+    tool_item = gtk_tool_button_new_from_stock (stock); \
+    gtk_toolbar_insert (GTK_TOOLBAR(toolbar),tool_item,-1); \
+    g_signal_connect(G_OBJECT(tool_item), "clicked", \
+            G_CALLBACK(callback), interface);
+
+#define PUT_TOOLBAR_SEPARATOR \
+    tool_item = gtk_separator_tool_item_new (); \
+    gtk_toolbar_insert (GTK_TOOLBAR(toolbar),tool_item,-1);
+
+    PUT_TOOLBAR_STOK_CALLBACK(GTK_STOCK_OPEN, on_menu_open);
+    PUT_TOOLBAR_SEPARATOR
+    PUT_TOOLBAR_STOK_CALLBACK (GTK_STOCK_GOTO_FIRST, on_menu_previous_file);
+    PUT_TOOLBAR_STOK_CALLBACK (GTK_STOCK_GO_BACK, on_menu_previous_image);
+    PUT_TOOLBAR_STOK_CALLBACK (GTK_STOCK_REFRESH, on_menu_random);
+    PUT_TOOLBAR_STOK_CALLBACK (GTK_STOCK_GO_FORWARD, on_menu_next_image);
+    PUT_TOOLBAR_STOK_CALLBACK (GTK_STOCK_GOTO_LAST, on_menu_next_file);
+    PUT_TOOLBAR_SEPARATOR
+    PUT_TOOLBAR_STOK_CALLBACK (GTK_STOCK_MEDIA_PLAY, on_menu_toggle_slideshow);
+
+    interface->gtk.slideshow_item = tool_item;
+
+    return toolbar;
+#undef PUT_TOOLBAR_STOK_CALLBACK
+#undef PUT_TOOLBAR_SEPARATOR
 }
 
 void
 gtkgif_init (void *data, PContext c) 
 {
     GtkGifInterace *interface = NULL;
-    GtkWidget *window, *drawing_area, *control_area, *main_box, *menu_bar;
+    GtkWidget *window, *drawing_area, *control_area, 
+            *main_box, *menu_bar, *toolbar;
     gtkgif_init_data *gg_id = (gtkgif_init_data *) data;
     cairo_t *cr_pixmap;
     int error;
@@ -567,10 +840,6 @@ gtkgif_init (void *data, PContext c)
     if (gg_id->runner != NULL) {
         error = gg_id->runner(c, gg_id->argc, gg_id->argv,
                 gg_id->user_data);
-        if (error != 0 ||
-            get_gif_count(c) == 0) {
-            return;
-        }
     } else {
         return;
     }
@@ -578,6 +847,13 @@ gtkgif_init (void *data, PContext c)
     interface = calloc (1,sizeof (*interface));
     set_context_interface_data (c, interface);
     interface->gif_context = c;
+
+    if (gg_id->get_help != NULL) {
+        interface->help_string = gg_id->get_help(c, gg_id->user_data);
+    } else {
+        interface->help_string = "Here must be the desctription, "
+                "but something went wrong. =(";
+    }
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     interface->gtk.window = window;
@@ -587,16 +863,16 @@ gtkgif_init (void *data, PContext c)
 
     gtk_window_set_resizable (GTK_WINDOW(window), FALSE);
     gtk_widget_set_app_paintable(window, TRUE);
-    gtk_window_set_title(GTK_WINDOW(window), "Random Gif");
+    gtk_window_set_title(GTK_WINDOW(window), PACKAGE_NAME);
 
     interface->gtk.control_area = control_area
             = gtk_hbox_new (FALSE, 0);
     interface->gtk.gif_id = gtk_label_new (NULL);
     interface->gtk.image_no = gtk_label_new (NULL);
     gtk_box_pack_start (GTK_BOX(control_area), 
-            interface->gtk.gif_id, TRUE, TRUE,0);
+            interface->gtk.gif_id, TRUE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX(control_area), 
-            interface->gtk.image_no, TRUE, FALSE,0);
+            interface->gtk.image_no, TRUE, FALSE, 0);
     gtk_misc_set_alignment (GTK_MISC (interface->gtk.gif_id), 0, 0);
     gtk_misc_set_alignment (GTK_MISC (interface->gtk.image_no), 0, 0);
     gtk_misc_set_padding (GTK_MISC(interface->gtk.gif_id), 0, 2);
@@ -607,10 +883,13 @@ gtkgif_init (void *data, PContext c)
     gtk_widget_show (interface->gtk.gif_id);
     gtk_widget_show (interface->gtk.control_area);
 
-    drawing_area = gtk_drawing_area_new();
+    interface->gtk.drawing_area = drawing_area = gtk_drawing_area_new();
     menu_bar = build_main_menu(window, interface);
+    toolbar = build_toolbar(window, interface);
+    gtk_widget_set_can_focus(drawing_area, TRUE);
 
     gtk_box_pack_start (GTK_BOX(main_box), menu_bar, FALSE, FALSE, 0);
+    gtk_box_pack_start (GTK_BOX(main_box), toolbar, FALSE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX(main_box), drawing_area, TRUE, TRUE, 0);
     gtk_box_pack_start (GTK_BOX(main_box), control_area, FALSE, FALSE, 0);
 
@@ -622,7 +901,7 @@ gtkgif_init (void *data, PContext c)
             G_CALLBACK (on_map), interface);
     g_signal_connect (drawing_area, "expose-event",
             G_CALLBACK (on_expose_event), interface);
-    g_signal_connect (window, "key-press-event",
+    g_signal_connect (drawing_area, "key-press-event",
             G_CALLBACK (on_key_press_event), interface);
     g_signal_connect (drawing_area, "button-press-event",
             G_CALLBACK (on_button_press_event), interface);
