@@ -559,6 +559,27 @@ on_button_press_event (GtkWidget *widget,
 }
 
 static gboolean
+on_window_key_press_event (GtkWidget *widget,
+        GdkEventKey *event,
+        gpointer data)
+{
+    GtkGifInterace *interface = (GtkGifInterace *) data;
+
+    switch (event->keyval) {
+    case GDK_KEY_Escape :
+        gtk_widget_destroy (interface->gtk.window);
+        return TRUE;
+        break;
+
+    default:
+        return FALSE;
+        break;
+    }
+
+    return FALSE;
+}
+
+static gboolean
 on_key_press_event (GtkWidget *widget,
         GdkEventKey *event,
         gpointer data)
@@ -617,7 +638,7 @@ on_menu_open (GtkWidget *widget,
     GSList *files, *files_it;
     GtkFileFilter *gif_filter, *all_filter;
     int error;
-    gboolean files_opend;
+    int gif_count;
 
     dialog = gtk_file_chooser_dialog_new( "Open gif file",
             GTK_WINDOW(interface->gtk.window), GTK_FILE_CHOOSER_ACTION_OPEN,
@@ -637,7 +658,7 @@ on_menu_open (GtkWidget *widget,
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
     gtk_file_chooser_set_select_multiple (GTK_FILE_CHOOSER(dialog), TRUE);
 
-    files_opend = get_gif_count(interface->gif_context) > 0;
+    gif_count = fmax (get_gif_count(interface->gif_context), 0);
 
     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
         files = files_it = gtk_file_chooser_get_filenames (GTK_FILE_CHOOSER(dialog));
@@ -653,7 +674,9 @@ on_menu_open (GtkWidget *widget,
     }
     gtk_widget_destroy (dialog);
 
-    if (!files_opend) {
+    if (gif_count < get_gif_count(interface->gif_context)) {
+        interface->gif_no = gif_count;
+        interface->image_no = 0;
         update_image(interface, TRUE);
     }
 }
@@ -817,7 +840,7 @@ build_toolbar (GtkWidget *window,
 
     interface->gtk.toolbar = toolbar = gtk_toolbar_new();
     gtk_toolbar_set_style(GTK_TOOLBAR(toolbar), GTK_TOOLBAR_ICONS);
-    gtk_container_set_border_width(GTK_CONTAINER(toolbar), 2);
+//    gtk_container_set_border_width(GTK_CONTAINER(toolbar), 2);
     gtk_toolbar_set_icon_size(GTK_TOOLBAR(toolbar), GTK_ICON_SIZE_SMALL_TOOLBAR);
     gtk_toolbar_set_show_arrow(GTK_TOOLBAR(toolbar), FALSE);
 
@@ -825,7 +848,7 @@ build_toolbar (GtkWidget *window,
     tool_item = gtk_tool_button_new_from_stock (stock); \
     gtk_toolbar_insert (GTK_TOOLBAR(toolbar),tool_item,-1); \
     g_signal_connect(G_OBJECT(tool_item), "clicked", \
-            G_CALLBACK(callback), interface);
+            G_CALLBACK(callback), interface); 
 
 #define PUT_TOOLBAR_SEPARATOR \
     tool_item = gtk_separator_tool_item_new (); \
@@ -912,7 +935,9 @@ gtkgif_init (void *data, PContext c)
     interface->gtk.drawing_area = drawing_area = gtk_drawing_area_new();
     menu_bar = build_main_menu(window, interface);
     toolbar = build_toolbar(window, interface);
-    gtk_widget_set_can_focus(drawing_area, TRUE);
+
+    gtk_widget_set_can_focus (drawing_area, TRUE);
+    gtk_widget_set_can_focus (toolbar, FALSE);
 
     gtk_box_pack_start (GTK_BOX(main_box), menu_bar, FALSE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX(main_box), toolbar, FALSE, FALSE, 0);
@@ -925,6 +950,9 @@ gtkgif_init (void *data, PContext c)
             G_CALLBACK (on_destroy), interface);
     g_signal_connect (window, "map-event",
             G_CALLBACK (on_map), interface);
+    g_signal_connect (window, "key-press-event",
+            G_CALLBACK (on_window_key_press_event), interface);
+
     g_signal_connect (drawing_area, "expose-event",
             G_CALLBACK (on_expose_event), interface);
     g_signal_connect (drawing_area, "key-press-event",
@@ -947,5 +975,6 @@ gtkgif_init (void *data, PContext c)
     update_image (interface, TRUE);
     //get_random_image (interface, TRUE);
 
+    gtk_widget_grab_focus (drawing_area);
     gtk_main();
 }
