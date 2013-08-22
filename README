@@ -1,6 +1,7 @@
 Gif Seeker
 
 Gif Seeker is a simple tool for gif files seeking.
-E.g. to choose film from gif with many philms' covers.
+E.g. to choose film from gif with many philms' covers
+like in examples directory.
 This progtamm based on gtk and gif_lib, but it has 
 potential to have another UI like Qt.
