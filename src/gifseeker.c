@@ -20,7 +20,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "gifrandom.h"
+#include "gifseeker.h"
 
 #include <stdlib.h>
 #include <string.h>

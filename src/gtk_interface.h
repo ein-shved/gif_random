@@ -24,7 +24,7 @@
 #define GTK_INTERFACE_H
 
 #include <gtk/gtk.h>
-#include "gifrandom.h"
+#include "gifseeker.h"
 
 typedef int (*ContextRunner) (PContext c, 
         int *argc, char ***argv, void *user_data);

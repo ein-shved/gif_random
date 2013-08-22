@@ -281,8 +281,9 @@ update_image (GtkGifInterace *interface, gboolean display)
         gtk_label_set_text (GTK_LABEL(interface->gtk.image_no), 
                 image_no);
     } else {
+        interface->mode = GIF_GTK_COMMON_MODE;
         gtk_label_set_text (GTK_LABEL(interface->gtk.image_no), 
-                "No files cpecified");
+                "No files specified");
     }
 
     gtk_widget_size_request (interface->gtk.gif_id, &natural_size);
@@ -323,8 +324,8 @@ get_random_image (GtkGifInterace *interface, gboolean display)
     int gif, gif_count, img, img_count;
 
     gif_count = get_gif_count (c);
-    if (gif_count <= 0) { 
-        put_warning ("Can not get count of gifs");
+    if (gif_count == 0) { 
+        update_image (interface, display);
         return;
     }
     gif = rand () % gif_count;
@@ -349,6 +350,12 @@ get_next_image (GtkGifInterace *interface, gboolean display)
 
     gif = interface->gif_no;
     img = interface->image_no + 1;
+
+    gif_count = get_gif_count (c);
+    if (gif_count == 0) { 
+        update_image (interface, display);
+        return;
+    }
 
     img_count = get_gif_image_count(c,gif);
     if (img_count <= 0) {
@@ -383,6 +390,12 @@ get_previous_image (GtkGifInterace *interface, gboolean display)
     gif = interface->gif_no;
     img = interface->image_no - 1;
 
+    gif_count = get_gif_count (c);
+    if (gif_count == 0) { 
+        update_image (interface, display);
+        return;
+    }
+
     if ( img < 0 ) { 
         --gif;
         if ( gif < 0 ) {
@@ -413,6 +426,12 @@ get_next_gif (GtkGifInterace *interface, gboolean display)
 {
     PContext c = interface->gif_context;
     int gif, img, gif_count;
+    
+    gif_count = get_gif_count (c);
+    if (gif_count == 0) { 
+        update_image (interface, display);
+        return;
+    }
 
     gif = interface->gif_no + 1;
     img = 0;
@@ -437,6 +456,12 @@ get_preavious_gif (GtkGifInterace *interface, gboolean display)
 {
     PContext c = interface->gif_context;
     int gif, img, gif_count;
+
+    gif_count = get_gif_count (c);
+    if (gif_count == 0) { 
+        update_image (interface, display);
+        return;
+    }
 
     gif = interface->gif_no - 1;
     img = 0;
@@ -465,10 +490,10 @@ show_about_dialog (GtkGifInterace *interface)
     gtk_about_dialog_set_copyright(GTK_ABOUT_DIALOG(dialog), 
         "(c) "PACKAGE_BUGREPORT);
     gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dialog), 
-        PACKAGE_NAME " is a simple tool for gif files seecking. "
+        PACKAGE_NAME " is a simple tool for gif files seeking.\n"
         "E.g. to choose film from gif with many philms' covers.");
     gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dialog), 
-        "http://github.com/ein-shved/gif_random");
+        "http://github.com/ein-shved/gif_seeker");
     gtk_dialog_run(GTK_DIALOG (dialog));
     gtk_widget_destroy(dialog);
 }
@@ -485,6 +510,7 @@ show_help_dialog (GtkGifInterace *interface)
             PACKAGE_STRING);
     gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG(dialog),
             "%s", interface->help_string);
+    gtk_window_set_title (GTK_WINDOW(dialog), "Help for " PACKAGE_NAME);
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
 }

@@ -20,8 +20,8 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef GIFRANDOM_H
-#define GIFRANDOM_H
+#ifndef GIFSEEKER_H
+#define GIFSEEKER_H
 
 #include <gif_lib.h>
 #include <stdio.h>
@@ -80,4 +80,4 @@ void set_context_interface_data (PContext c, void *data);
 
 const char *get_gif_filename (const PContext c, int gif);
 
-#endif /*GIFRANDOM_H*/
+#endif /*GIFSEEKER_H*/
