@@ -1,2 +1,6 @@
-This is usless programm, which using 
-gif_lib and glib.
+Gif Seeker
+
+Gif Seeker is a simple tool for gif files seeking.
+E.g. to choose film from gif with many philms' covers.
+This progtamm based on gtk and gif_lib, but it has 
+potential to have another UI like Qt.
