@@ -263,7 +263,7 @@ get_snapshoot_pos (const PContext c,
     if (!gifptr_correct(gif, c)
         && gif_pos < 0 && gif_pos >= 1 ) {
         put_warning ("Wrong gif pointer "
-                "%d:%1.4f",gif,gif_pos );
+                "%d:%d",gif,gif_pos );
         return NULL;
     }
     gifFile = ((GifFileType *) c->gifs->pdata[gif]);

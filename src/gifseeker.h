@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define put_error(code, error, a...) \
     fprintf(stderr, "ERROR: " error "\nExiting with code %d.\n", ## a, code); \
