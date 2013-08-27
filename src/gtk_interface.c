@@ -488,7 +488,8 @@ show_about_dialog (GtkGifInterace *interface)
         "(c) "PACKAGE_BUGREPORT);
     gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dialog), 
         PACKAGE_NAME " is a simple tool for gif files seeking.\n"
-        "E.g. to choose film from gif with many philms' covers.");
+        "E.g. to choose film from gif with many philms' covers " 
+        "like in the examples dirictory.");
     gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dialog), 
         "http://github.com/ein-shved/gif_seeker");
     gtk_dialog_run(GTK_DIALOG (dialog));
